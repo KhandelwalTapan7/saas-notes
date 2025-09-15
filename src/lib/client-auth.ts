@@ -1,10 +1,22 @@
-// Vercel/SSR safe helpers
+
+
+// src/lib/client-auth.ts
+
+export interface JwtClaims {
+  sub?: string;
+  email?: string;
+  role?: string; // "ADMIN" | "MEMBER"
+  tenant?: {
+    id?: string;
+    slug?: string;
+    plan?: string; // "FREE" | "PRO"
+  };
+  [key: string]: unknown;
+}
 
 function decodeBase64(str: string): string {
-  try {
-    if (typeof atob === "function") return atob(str); // browser
-  } catch {}
-  return Buffer.from(str, "base64").toString("utf8"); // node
+  try { if (typeof atob === "function") return atob(str); } catch {}
+  return Buffer.from(str, "base64").toString("utf8");
 }
 
 export function saveToken(token: string): void {
@@ -22,7 +34,7 @@ export function clearToken(): void {
   localStorage.removeItem("token");
 }
 
-/** Always returns a valid HeadersInit */
+/** Always return a valid Headers object (satisfies HeadersInit) */
 export function authHeaders(): Headers {
   const h = new Headers();
   const t = getToken();
@@ -30,15 +42,14 @@ export function authHeaders(): Headers {
   return h;
 }
 
-export type JwtClaims = Record<string, unknown>;
-
 export function getJwtClaims(): JwtClaims {
   const t = getToken();
   if (!t) return {};
   try {
     const [, payload] = t.split(".");
     if (!payload) return {};
-    return JSON.parse(decodeBase64(payload)) as JwtClaims;
+    const parsed = JSON.parse(decodeBase64(payload));
+    return parsed && typeof parsed === "object" ? (parsed as JwtClaims) : {};
   } catch {
     return {};
   }
