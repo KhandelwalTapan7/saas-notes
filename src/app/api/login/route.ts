@@ -1,8 +1,10 @@
+export const runtime = "nodejs";
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
 import { signJwt } from "@/lib/jwt";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+
 
 const Body = z.object({ email: z.string().email(), password: z.string().min(1) });
 
