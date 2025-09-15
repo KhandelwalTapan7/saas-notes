@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { saveToken } from "@/lib/client-auth";
@@ -11,16 +11,19 @@ export default function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
     const res = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
+
     const data = await res.json();
     if (!res.ok) {
       setError(data?.error || "Login failed");
       return;
     }
+
     saveToken(data.token);
     window.location.href = "/notes";
   }
@@ -29,7 +32,8 @@ export default function LoginPage() {
     <main style={{ maxWidth: 440, margin: "64px auto", padding: 24 }}>
       <h1>Login</h1>
       <p style={{ fontSize: 12, marginBottom: 16 }}>
-        Accounts: admin@acme.test, user@acme.test, admin@globex.test, user@globex.test <br />
+        Accounts: admin@acme.test, user@acme.test, admin@globex.test, user@globex.test
+        <br />
         Password for all: <code>password</code>
       </p>
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>

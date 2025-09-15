@@ -1,11 +1,13 @@
-// src/app/page.tsx
+﻿import Link from "next/link";
+
 export default function Home() {
   return (
-    <main style={{ padding: 24 }}>
-      <h1>SaaS Notes</h1>
-      <p>
-        <a href="/login">Login</a> → then manage your notes.
-      </p>
+    <main className="p-8 text-white">
+      <h1 className="text-xl mb-2">SaaS Notes</h1>
+      <p className="mb-4">Login → then manage your notes.</p>
+      <Link href="/login" className="underline text-blue-400">
+        Go to Login
+      </Link>
     </main>
   );
 }
