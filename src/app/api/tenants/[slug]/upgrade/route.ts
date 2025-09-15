@@ -1,18 +1,33 @@
+// src/app/api/tenants/[slug]/upgrade/route.ts
 import { prisma } from "@/lib/db";
 import { withCORS, preflight } from "@/lib/cors";
-import { requireUser, requireAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
-export async function POST(req: Request, { params }: { params: { slug: string } }) {
+export function OPTIONS() {
+  return preflight();
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: { slug: string } }
+) {
   try {
-    const user = requireUser(req);
-    requireAdmin(user);
-    if (user.tenant.slug !== params.slug)
+    // Validate admin and get typed user (sub + tenant.id guaranteed)
+    const user = requireAdmin(req);
+
+    // Prevent cross-tenant upgrades
+    if ((user.tenant.slug ?? "") !== params.slug) {
       return new Response(JSON.stringify({ error: "Forbidden" }), withCORS({ status: 403 }));
-    const updated = await prisma.tenant.update({ where: { slug: params.slug }, data: { plan: "PRO" } });
-    return new Response(JSON.stringify({ ok: true, plan: updated.plan }), withCORS({ status: 200 }));
+    }
+
+    const updated = await prisma.tenant.update({
+      where: { slug: params.slug },
+      data: { plan: "PRO" },
+    });
+
+    return new Response(JSON.stringify(updated), withCORS({ status: 200 }));
   } catch (e: any) {
-    if (e instanceof Response) return e;
-    return new Response(JSON.stringify({ error: "Unauthorized" }), withCORS({ status: 401 }));
+    if (e instanceof Response) return e; // bubble up 401/403 from requireAdmin
+    return new Response(JSON.stringify({ error: e?.message || "Server error" }), withCORS({ status: 500 }));
   }
 }
-export function OPTIONS() { return preflight(); }
