@@ -1,119 +1,172 @@
+// src/app/notes/page.tsx
 'use client';
 
+import { useEffect, useState } from 'react';
 import { authHeaders, getJwtClaims, type JwtClaims } from '@/lib/client-auth';
 
-// ...
-
-const claims: JwtClaims = getJwtClaims();
-
-// ✅ Narrow to string
-const role: string = typeof claims.role === 'string' ? claims.role : '';
-const tenantSlug: string =
-  typeof claims.tenant?.slug === 'string' ? claims.tenant.slug : '';
-
+type Note = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt?: string;
+};
 
 export default function NotesPage() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
+  const [notes, setNotes]   = useState<Note[]>([]);
+  const [title, setTitle]   = useState('');
+  const [content, setContent] = useState('');
+  const [error, setError]   = useState('');
 
-  const claims = getJwtClaims();
-  const role: string = claims?.role || "";
-  const tenantSlug: string = claims?.tenant?.slug || "";
+  const claims: JwtClaims = getJwtClaims();
+  const role: string = typeof claims.role === 'string' ? claims.role : '';
+  const tenantSlug: string =
+    typeof claims.tenant?.slug === 'string' ? claims.tenant.slug : '';
 
   async function load() {
-    const res = await fetch("/api/notes", { headers: authHeaders() });
+    setError('');
+    const res = await fetch('/api/notes', { headers: authHeaders() });
     if (res.status === 401) {
-      window.location.href = "/login";
+      window.location.href = '/login';
       return;
     }
-    setNotes(await res.json());
+    if (!res.ok) {
+      setError('Failed to load notes');
+      return;
+    }
+    const data = await res.json();
+    setNotes(Array.isArray(data) ? data : data.notes ?? []);
   }
 
-  async function addNote() {
-    const res = await fetch("/api/notes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
+  async function createNote() {
+    setError('');
+    const h = authHeaders();
+    h.set('Content-Type', 'application/json');
+    const res = await fetch('/api/notes', {
+      method: 'POST',
+      headers: h,
       body: JSON.stringify({ title, content }),
     });
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      if (res.status === 403 && /Upgrade/i.test(d?.error || "")) {
-        setInfo("Free plan limit reached. If ADMIN, upgrade below.");
-      } else {
-        setError(d?.error || "Error creating note");
-      }
+    if (res.status === 401) {
+      window.location.href = '/login';
       return;
     }
-    setTitle("");
-    setContent("");
-    load();
+    if (!res.ok) {
+      const msg = await res.text();
+      setError(msg || 'Failed to create note (maybe you hit the Free plan limit?)');
+      return;
+    }
+    setTitle('');
+    setContent('');
+    await load();
   }
 
-  async function del(id: string) {
-    await fetch(`/api/notes/${id}`, { method: "DELETE", headers: authHeaders() });
-    load();
-  }
-
-  async function upgrade() {
-    const res = await fetch(`/api/tenants/${tenantSlug}/upgrade`, {
-      method: "POST",
+  async function deleteNote(id: string) {
+    setError('');
+    const res = await fetch(`/api/notes/${id}`, {
+      method: 'DELETE',
       headers: authHeaders(),
     });
-    const d = await res.json();
-    if (res.ok) setInfo(`Upgraded to ${d.plan}. Try again.`);
-    else setError(d?.error || "Upgrade failed");
+    if (!res.ok) {
+      setError('Failed to delete note');
+      return;
+    }
+    await load();
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <main style={{ maxWidth: 760, margin: "32px auto", padding: 16 }}>
-      <header style={{ display: "flex", justifyContent: "space-between" }}>
-        <h1>Notes</h1>
-        <button onClick={() => { clearToken(); window.location.href = "/login"; }}>
+    <main className="max-w-3xl mx-auto p-6 space-y-6">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Notes</h1>
+          <p className="text-sm text-gray-500">
+            Tenant: <span className="font-mono">{tenantSlug || '(unknown)'}</span> · Role:{' '}
+            <span className="font-mono">{role || '(member)'}</span>
+          </p>
+        </div>
+        <a
+          className="text-blue-600 hover:underline"
+          href="/login"
+        >
           Logout
-        </button>
+        </a>
       </header>
 
-      <section style={{ border: "1px solid #ddd", padding: 12, margin: "16px 0" }}>
-        <input
-          placeholder="Title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ width: "100%", padding: 8, marginBottom: 8 }}
-        />
-        <textarea
-          placeholder="Content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          style={{ width: "100%", padding: 8, height: 100 }}
-        />
-        <button onClick={addNote}>Add Note</button>
-      </section>
-
-      {role === "ADMIN" && info.includes("Free plan") && (
-        <section style={{ border: "1px dashed #999", padding: 12 }}>
-          <p>{info}</p>
-          <button onClick={upgrade}>Upgrade to Pro</button>
-        </section>
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 text-red-700 p-3">
+          {error}
+        </div>
       )}
 
-      {error && <p style={{ color: "crimson" }}>{error}</p>}
+      <section className="space-y-3">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="w-full border rounded px-3 py-2"
+        />
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Content"
+          className="w-full border rounded px-3 py-2"
+          rows={4}
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={createNote}
+            className="rounded bg-black text-white px-4 py-2"
+          >
+            Create
+          </button>
+          {/* Show upgrade hint if you hit the free plan limit */}
+          <a
+            href={`/api/tenants/${tenantSlug}/upgrade`}
+            className="rounded border px-4 py-2"
+          >
+            Upgrade to Pro
+          </a>
+        </div>
+      </section>
 
-      <ul>
-        {notes.map((n) => (
-          <li key={n.id} style={{ borderBottom: "1px solid #eee", padding: 8 }}>
-            <strong>{n.title}</strong>
-            <button onClick={() => del(n.id)} style={{ marginLeft: 8 }}>
-              Delete
-            </button>
-            <p>{n.content}</p>
-          </li>
-        ))}
-      </ul>
+      <section>
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="text-left border-b">
+              <th className="p-2">Title</th>
+              <th className="p-2">Content</th>
+              <th className="p-2 w-32">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {notes.map((n) => (
+              <tr key={n.id} className="border-b">
+                <td className="p-2 align-top">{n.title}</td>
+                <td className="p-2 align-top">{n.content}</td>
+                <td className="p-2 align-top">
+                  <button
+                    onClick={() => deleteNote(String(n.id))}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {notes.length === 0 && (
+              <tr>
+                <td colSpan={3} className="p-4 text-center text-gray-500">
+                  No notes yet. Create one!
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
     </main>
   );
 }
