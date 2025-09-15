@@ -1,3 +1,4 @@
+// src/lib/auth.ts
 import { verifyJwt, type JwtPayload } from "@/lib/jwt";
 
 /** Extracts the bearer token from Authorization header */
@@ -13,34 +14,39 @@ export function getClaims(req: Request): JwtPayload | null {
   return token ? verifyJwt<JwtPayload>(token) : null;
 }
 
+/** A user shape guaranteed to have a tenant with an id */
+export type AuthUser = JwtPayload & {
+  tenant: { id: string; slug?: string; plan?: string };
+};
+
 /**
- * Ensures a valid JWT exists; throws a Response(401) if not.
+ * Ensures a valid JWT exists *and* includes tenant.id; throws 401 if not.
  * Usage in route handlers:
- *   const claims = requireUser(req);
+ *   const user = requireUser(req); // user.tenant.id is non-optional
  */
-export function requireUser(req: Request): JwtPayload {
+export function requireUser(req: Request): AuthUser {
   const claims = getClaims(req);
-  if (!claims) {
+  if (!claims || !claims.tenant?.id) {
     throw new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "content-type": "application/json" },
     });
   }
-  return claims;
+  return claims as AuthUser;
 }
 
 /**
- * Ensures user is ADMIN; throws 403 otherwise.
+ * Ensures user is ADMIN (and has tenant.id); throws 403 otherwise.
  * Usage:
- *   const claims = requireAdmin(req);
+ *   const admin = requireAdmin(req);
  */
-export function requireAdmin(req: Request): JwtPayload {
-  const claims = requireUser(req);
-  if (claims.role !== "ADMIN") {
+export function requireAdmin(req: Request): AuthUser {
+  const user = requireUser(req);
+  if (user.role !== "ADMIN") {
     throw new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "content-type": "application/json" },
     });
   }
-  return claims;
+  return user;
 }
