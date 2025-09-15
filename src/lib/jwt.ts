@@ -1,29 +1,21 @@
-import jwt from "jsonwebtoken";
+import jwt, { type JwtPayload, type SignOptions, type Algorithm } from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-if (!JWT_SECRET) {
-  // Don’t crash dev, but make it obvious
-  console.warn("⚠️ JWT_SECRET missing in .env");
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-export type JwtPayload = {
-  sub: string; // userId
-  email: string;
-  role: "ADMIN" | "MEMBER";
-  tenant: { id: string; slug: string };
-};
-
-export function signJwt(payload: JwtPayload, expiresIn = "7d") {
-  return jwt.sign(payload, JWT_SECRET || "dev-secret", {
-    algorithm: "HS256",
+export function signJwt(
+  payload: JwtPayload,
+  expiresIn: import('ms').StringValue | number = '7d' as const
+) {
+  const options: SignOptions = {
+    algorithm: 'HS256' as Algorithm,
     expiresIn,
-  });
+  };
+  return jwt.sign(payload, JWT_SECRET, options);
 }
 
-export function verifyJwt(token?: string): JwtPayload | null {
-  if (!token) return null;
+export function verifyJwt<T extends object = JwtPayload>(token: string): T | null {
   try {
-    return jwt.verify(token, JWT_SECRET || "dev-secret") as JwtPayload;
+    return jwt.verify(token, JWT_SECRET) as T;
   } catch {
     return null;
   }

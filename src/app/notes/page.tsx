@@ -1,9 +1,16 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { authHeaders, clearToken, getJwtClaims } from "@/lib/client-auth";
+import { authHeaders, getJwtClaims, type JwtClaims } from '@/lib/client-auth';
 
-type Note = { id: string; title: string; content: string; createdAt: string };
+// ...
+
+const claims: JwtClaims = getJwtClaims();
+
+// ✅ Narrow to string
+const role: string = typeof claims.role === 'string' ? claims.role : '';
+const tenantSlug: string =
+  typeof claims.tenant?.slug === 'string' ? claims.tenant.slug : '';
+
 
 export default function NotesPage() {
   const [notes, setNotes] = useState<Note[]>([]);
